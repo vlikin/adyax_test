@@ -11,9 +11,9 @@
 function adyax_test_field_info() {
   return array(
     // We name our field as the associative name of the array.
-    'adyax_test_rgb' => array(
+    'adyax_test_vimeo_code' => array(
       'label' => t('Vimeo'),
-      'description' => t('Demonstrates a field composed of an RGB color.'),
+      'description' => t('Demonstrates a field composed of an vimeo_code color.'),
       'default_widget' => 'adyax_test_3text',
       'default_formatter' => 'adyax_test_simple_text',
     ),
@@ -21,14 +21,14 @@ function adyax_test_field_info() {
 }
 
 /**
- * Implements hook_field_validate().
+ * Implements hook_field_validate.
  *
  * @see adyax_test_field_widget_error()
  */
 function adyax_test_field_validate($entity_type, $entity, $field, $instance, $langcode, $items, &$errors) {
   foreach ($items as $delta => $item) {
-    if (!empty($item['rgb'])) {
-      if (!preg_match('@^[0-9]+$@', $item['rgb'])) {
+    if (!empty($item['vimeo_code'])) {
+      if (!preg_match('@^[0-9]+$@', $item['vimeo_code'])) {
         $errors[$field['field_name']][$langcode][$delta][] = array(
           'error' => 'adyax_test_invalid',
           'message' => t('Vimeo code contains only numbers.'),
@@ -38,24 +38,59 @@ function adyax_test_field_validate($entity_type, $entity, $field, $instance, $la
   }
 }
 
+/**
+ * Implements hook_field_formatter_settings_summary().
+ */
+function adyax_test_field_formatter_settings_summary($field, $instance, $view_mode) {
+  $display = $instance['display'][$view_mode];
+  $settings = $display['settings'];
+  if ($display['type'] == 'adyax_test_vimeo_thumbnail') {
+    $summary = array();
+
+    $image_styles = image_style_options(FALSE, PASS_THROUGH);
+    unset($image_styles['']);
+    if (isset($image_styles[$settings['image_style']])) {
+      $summary[] = t('Image style: @style', array('@style' => $image_styles[$settings['image_style']]));
+    }
+    else {
+      $summary[] = t('Original image');
+    }
+
+    return implode('<br />', $summary);
+  }
+}
 
 /**
- * Implements hook_field_is_empty().
- *
- * hook_field_is_emtpy() is where Drupal asks us if this field is empty.
- * Return TRUE if it does not contain data, FALSE if it does. This lets
- * the form API flag an error when required fields are empty.
+ * Implements hook_field_formatter_settings_form.
+ */
+function adyax_test_field_formatter_settings_form($field, $instance, $view_mode, $form, &$form_state) {
+  $display = $instance['display'][$view_mode];
+  $settings = $display['settings'];
+  $element = array();
+
+  if ($display['type'] == 'adyax_test_vimeo_thumbnail') {
+    $image_styles = image_style_options(FALSE, PASS_THROUGH);
+    $element['image_style'] = array(
+      '#title' => t('Image style'),
+      '#type' => 'select',
+      '#default_value' => $settings['image_style'],
+      '#empty_option' => t('None (original image)'),
+      '#options' => $image_styles,
+    );
+  }
+
+  return $element;
+}
+
+/**
+ * Implements hook_field_is_empty.
  */
 function adyax_test_field_is_empty($item, $field) {
-  return empty($item['rgb']);
+  return empty($item['vimeo_code']);
 }
 
 /**
  * Implements hook_field_formatter_info().
- *
- * We need to tell Drupal that we have two different types of formatters
- * for this field. One will change the text color, and the other will
- * change the background color.
  *
  * @see adyax_test_field_formatter_view()
  */
@@ -63,11 +98,14 @@ function adyax_test_field_formatter_info() {
   return array (
     'adyax_test_vimeo_thumbnail' => array (
       'label' => t('Vimeo video thumbnail'),
-      'field types' => array('adyax_test_rgb'),
+      'field types' => array ('adyax_test_vimeo_code'),
+      'settings' => array (
+        'image_style' => 'thumbnail',
+      ),
     ),
     'adyax_test_vimeo_video' => array (
       'label' => t('Vimeo video'),
-      'field types' => array('adyax_test_rgb'),
+      'field types' => array('adyax_test_vimeo_code'),
     ),
   );
 }
@@ -76,8 +114,6 @@ function adyax_test_field_formatter_info() {
  * Implements hook_init.
  */
 function adyax_test_init() {
- //dpm('adyax_test_init');
-  //_adyax_test_load_thumnail($id);
 }
 
 function _adyax_test_load_thumnail($id) {
@@ -88,7 +124,9 @@ function _adyax_test_load_thumnail($id) {
   $data = json_decode($result->data);
   $image = file_get_contents($data[0]->thumbnail_large);
   $dir = 'public://fields/vimeo/thumbnail/';
-  drupal_mkdir($dir, NULL, TRUE);
+  if (!file_exists(drupal_realpath($dir))) {
+    drupal_mkdir($dir, NULL, TRUE);
+  }
   $destination = $dir . $id . '.jpg';
   $file = file_save_data($image, $destination, FILE_EXISTS_REPLACE);
   if (is_object($file)) { 
@@ -104,20 +142,13 @@ function _adyax_test_load_thumnail($id) {
  * Implements hook_field_presave.
  */
 function adyax_test_field_presave($entity_type, $entity, $field, $instance, $langcode, &$items) {
-  //dpm('adyax_test_field_presave');
-  //dpm($field['type']);
-  //dpm($items);
-  //dpm($entity);
-  if ($field['type'] == 'adyax_test_rgb') {
-    // Let PHP round the value to ensure consistent behavior across storage
-    // backends.
+  if ($field['type'] == 'adyax_test_vimeo_code') {
     foreach ($items as $delta => &$item) {
-      if (isset($item['rgb'])) {
-        $file = _adyax_test_load_thumnail($item['rgb']);
+      if (isset($item['vimeo_code'])) {
+        $file = _adyax_test_load_thumnail($item['vimeo_code']);
         if ($file) {
           $item['fid'] = $file->fid;
         }
-        dpm($file);
       }
     }
   }
@@ -134,14 +165,16 @@ function adyax_test_field_formatter_view($entity_type, $entity, $field, $instanc
   switch ($display['type']) {
     case 'adyax_test_vimeo_thumbnail':
       foreach ($items as $delta => $item) {
+        $file = file_load($item['fid']);
+
         $image = array (
-          '#type' => 'image_style',
+          '#theme' => 'image_style',
+          '#style_name' => $display['settings']['image_style'],
+          '#path' => $file->uri
         );
         $element[$delta] = array (
           '#type' => 'link',
-          '#href' => array (
-            'href' => 'http://player.vimeo.com/video/' . $item['rgb'],
-          ),
+          '#href' => 'http://vimeo.com/' . $item['vimeo_code'],
           '#options' => array (
             'html' => TRUE,
           ),
@@ -150,15 +183,13 @@ function adyax_test_field_formatter_view($entity_type, $entity, $field, $instanc
       }
       break;
 
-    // This formatter adds css to the page changing the '.region-content' area's
-    // background color. If there are many fields, the last one will win.
     case 'adyax_test_vimeo_video':
       foreach ($items as $delta => $item) {
         $element[$delta] = array(
           '#type' => 'html_tag',
           '#tag' => 'iframe',
           '#attributes' => array(
-            'src' => 'http://player.vimeo.com/video/' . $item['rgb'],
+            'src' => 'http://player.vimeo.com/video/' . $item['vimeo_code'],
             'width' => '500',
             'height' => '281',
             'frameborder' => '0',
@@ -185,7 +216,7 @@ function adyax_test_field_widget_info() {
     //'adyax_test_text'
     'adyax_test_video_code' => array(
       'label' => t('Vimeo code'),
-      'field types' => array('adyax_test_rgb'),
+      'field types' => array('adyax_test_vimeo_code'),
     ),
   );
 }
@@ -194,7 +225,7 @@ function adyax_test_field_widget_info() {
  * Implements hook_field_widget_form().
  */
 function adyax_test_field_widget_form(&$form, &$form_state, $field, $instance, $langcode, $items, $delta, $element) {
-  $value = isset($items[$delta]['rgb']) ? $items[$delta]['rgb'] : '';
+  $value = isset($items[$delta]['vimeo_code']) ? $items[$delta]['vimeo_code'] : '';
 
   $widget = $element;
   $widget['#delta'] = $delta;
@@ -212,7 +243,7 @@ function adyax_test_field_widget_form(&$form, &$form_state, $field, $instance, $
       break;
   }
 
-  $element['rgb'] = $widget;
+  $element['vimeo_code'] = $widget;
   return $element;
 }
 

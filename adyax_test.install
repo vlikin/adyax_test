@@ -13,11 +13,11 @@
  */
 function adyax_test_field_schema($field) {
   $columns = array(
-    'rgb' => array('type' => 'int', 'not null' => FALSE),
+    'vimeo_code' => array('type' => 'int', 'not null' => FALSE),
     'fid' => array('type' => 'int', 'not null' => FALSE),
   );
   $indexes = array(
-    'rgb' => array('rgb'),
+    'vimeo_code' => array('vimeo_code'),
   );
   return array(
     'columns' => $columns,
