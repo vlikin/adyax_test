@@ -1,0 +1,26 @@
+<?php
+/**
+ * @file
+ * Install, update, and uninstall functions for the adyax_test module.
+ */
+
+/**
+ * Implements hook_field_schema().
+ *
+ * @see schemaapi
+ * @see hook_field_schema()
+ * @ingroup adyax_test
+ */
+function adyax_test_field_schema($field) {
+  $columns = array(
+    'rgb' => array('type' => 'int', 'not null' => FALSE),
+    'fid' => array('type' => 'int', 'not null' => FALSE),
+  );
+  $indexes = array(
+    'rgb' => array('rgb'),
+  );
+  return array(
+    'columns' => $columns,
+    'indexes' => $indexes,
+  );
+}

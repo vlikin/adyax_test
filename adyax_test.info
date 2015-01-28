@@ -1,0 +1,4 @@
+name = Adyax Test Vimeo
+description = Defines a field to store Vimeo video.
+package = Adyax
+core = 7.x

@@ -1,0 +1,212 @@
+<?php
+/**
+ * @file
+ * Main module file.
+ */
+
+
+/**
+ * Implements hook_field_info().
+ */
+function adyax_test_field_info() {
+  return array(
+    // We name our field as the associative name of the array.
+    'adyax_test_rgb' => array(
+      'label' => t('Vimeo'),
+      'description' => t('Demonstrates a field composed of an RGB color.'),
+      'default_widget' => 'adyax_test_3text',
+      'default_formatter' => 'adyax_test_simple_text',
+    ),
+  );
+}
+
+/**
+ * Implements hook_field_validate().
+ *
+ * @see adyax_test_field_widget_error()
+ */
+function adyax_test_field_validate($entity_type, $entity, $field, $instance, $langcode, $items, &$errors) {
+  foreach ($items as $delta => $item) {
+    if (!empty($item['rgb'])) {
+      if (!preg_match('@^[0-9]+$@', $item['rgb'])) {
+        $errors[$field['field_name']][$langcode][$delta][] = array(
+          'error' => 'adyax_test_invalid',
+          'message' => t('Vimeo code contains only numbers.'),
+        );
+      }
+    }
+  }
+}
+
+
+/**
+ * Implements hook_field_is_empty().
+ *
+ * hook_field_is_emtpy() is where Drupal asks us if this field is empty.
+ * Return TRUE if it does not contain data, FALSE if it does. This lets
+ * the form API flag an error when required fields are empty.
+ */
+function adyax_test_field_is_empty($item, $field) {
+  return empty($item['rgb']);
+}
+
+/**
+ * Implements hook_field_formatter_info().
+ *
+ * We need to tell Drupal that we have two different types of formatters
+ * for this field. One will change the text color, and the other will
+ * change the background color.
+ *
+ * @see adyax_test_field_formatter_view()
+ */
+function adyax_test_field_formatter_info() {
+  return array (
+    'adyax_test_vimeo_thumbnail' => array (
+      'label' => t('Vimeo video thumbnail'),
+      'field types' => array('adyax_test_rgb'),
+    ),
+    'adyax_test_vimeo_video' => array (
+      'label' => t('Vimeo video'),
+      'field types' => array('adyax_test_rgb'),
+    ),
+  );
+}
+
+function _adyax_test_load_thumnail($id) {
+  $id = 412341;
+  $result = drupal_http_request('http://vimeo.com/api/v2/video/' . $id . '.json');
+  $image = file_get_contents($path); // this is a PHP function to get a string representation of the image file
+
+  $dir = 'public://fields/vimeo/thumbnail';
+  drupal_mkdir($dir, NULL, TRUE);
+  $destination = 'public://fields/' . $id; // a stream wrapper path where you want this image to reside on your file system including the desired filename
+
+  $file = file_save_data($image, $destination, FILE_EXISTS_REPLACE);
+
+  if (is_object($file)) { 
+    $file->status = 1;
+    $file = file_save($file);
+  }
+}
+
+/**
+ * Implements hook_field_presave.
+ */
+function adyax_test_field_presave($entity_type, $entity, $field, $instance, $langcode, &$items) {
+  dpm('adyax_test_field_presave');
+}
+
+/**
+ * Implements hook_field_formatter_view().
+ *
+ * @see adyax_test_field_formatter_info()
+ */
+function adyax_test_field_formatter_view($entity_type, $entity, $field, $instance, $langcode, $items, $display) {
+  $element = array();
+
+  switch ($display['type']) {
+    case 'adyax_test_vimeo_thumbnail':
+      foreach ($items as $delta => $item) {
+        $image = array (
+          '#type' => 'image_style',
+        );
+        $element[$delta] = array (
+          '#type' => 'link',
+          '#href' => array (
+            'href' => 'http://player.vimeo.com/video/' . $item['rgb'],
+          ),
+          '#options' => array (
+            'html' => TRUE,
+          ),
+          '#title' => render($image),
+        );
+      }
+      break;
+
+    // This formatter adds css to the page changing the '.region-content' area's
+    // background color. If there are many fields, the last one will win.
+    case 'adyax_test_vimeo_video':
+      foreach ($items as $delta => $item) {
+        $element[$delta] = array(
+          '#type' => 'html_tag',
+          '#tag' => 'iframe',
+          '#attributes' => array(
+            'src' => 'http://player.vimeo.com/video/' . $item['rgb'],
+            'width' => '500',
+            'height' => '281',
+            'frameborder' => '0',
+            'webkitallowfullscreen' => 1,
+            'mozallowfullscreen' => 1,
+            'allowfullscreen' => 1,
+          ),
+          '#value' => NULL,
+        );
+      }
+      break;
+  }
+
+  return $element;
+}
+
+/**
+ * Implements hook_field_widget_info().
+ *
+ * @see adyax_test_field_widget_form()
+ */
+function adyax_test_field_widget_info() {
+  return array(
+    //'adyax_test_text'
+    'adyax_test_video_code' => array(
+      'label' => t('Vimeo code'),
+      'field types' => array('adyax_test_rgb'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_field_widget_form().
+ */
+function adyax_test_field_widget_form(&$form, &$form_state, $field, $instance, $langcode, $items, $delta, $element) {
+  $value = isset($items[$delta]['rgb']) ? $items[$delta]['rgb'] : '';
+
+  $widget = $element;
+  $widget['#delta'] = $delta;
+
+  switch ($instance['widget']['type']) {
+    case 'adyax_test_video_code':
+      $widget += array(
+        '#type' => 'textfield',
+        '#default_value' => $value,
+        '#description' => t('It only contains the vimeo code you can put a link here. The code is extracted automatically.'),
+        '#attached' => array (
+          'js' => array(drupal_get_path('module', 'adyax_test') . '/adyax_test.js'),
+        ),
+      );
+      break;
+  }
+
+  $element['rgb'] = $widget;
+  return $element;
+}
+
+/**
+ * Implements hook_field_widget_error().
+ *
+ * hook_field_widget_error() lets us figure out what to do with errors
+ * we might have generated in hook_field_validate(). Generally, we'll just
+ * call form_error().
+ *
+ * @see adyax_test_field_validate()
+ * @see form_error()
+ */
+function adyax_test_field_widget_error($element, $error, $form, &$form_state) {
+  switch ($error['error']) {
+    case 'adyax_test_invalid':
+      form_error($element, $error['message']);
+      break;
+  }
+}
+
+/**
+ * @} End of "defgroup adyax_test".
+ */
