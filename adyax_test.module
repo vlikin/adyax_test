@@ -72,28 +72,55 @@ function adyax_test_field_formatter_info() {
   );
 }
 
+/**
+ * Implements hook_init.
+ */
+function adyax_test_init() {
+ //dpm('adyax_test_init');
+  //_adyax_test_load_thumnail($id);
+}
+
 function _adyax_test_load_thumnail($id) {
-  $id = 412341;
   $result = drupal_http_request('http://vimeo.com/api/v2/video/' . $id . '.json');
-  $image = file_get_contents($path); // this is a PHP function to get a string representation of the image file
-
-  $dir = 'public://fields/vimeo/thumbnail';
+  if ($result->code != 200) {
+    return FALSE;
+  }
+  $data = json_decode($result->data);
+  $image = file_get_contents($data[0]->thumbnail_large);
+  $dir = 'public://fields/vimeo/thumbnail/';
   drupal_mkdir($dir, NULL, TRUE);
-  $destination = 'public://fields/' . $id; // a stream wrapper path where you want this image to reside on your file system including the desired filename
-
+  $destination = $dir . $id . '.jpg';
   $file = file_save_data($image, $destination, FILE_EXISTS_REPLACE);
-
   if (is_object($file)) { 
     $file->status = 1;
     $file = file_save($file);
+    return $file;
   }
+
+  return FALSE;
 }
 
 /**
  * Implements hook_field_presave.
  */
 function adyax_test_field_presave($entity_type, $entity, $field, $instance, $langcode, &$items) {
-  dpm('adyax_test_field_presave');
+  //dpm('adyax_test_field_presave');
+  //dpm($field['type']);
+  //dpm($items);
+  //dpm($entity);
+  if ($field['type'] == 'adyax_test_rgb') {
+    // Let PHP round the value to ensure consistent behavior across storage
+    // backends.
+    foreach ($items as $delta => &$item) {
+      if (isset($item['rgb'])) {
+        $file = _adyax_test_load_thumnail($item['rgb']);
+        if ($file) {
+          $item['fid'] = $file->fid;
+        }
+        dpm($file);
+      }
+    }
+  }
 }
 
 /**
