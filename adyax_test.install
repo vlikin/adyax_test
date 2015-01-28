@@ -5,11 +5,7 @@
  */
 
 /**
- * Implements hook_field_schema().
- *
- * @see schemaapi
- * @see hook_field_schema()
- * @ingroup adyax_test
+ * Implements hook_field_schema.
  */
 function adyax_test_field_schema($field) {
   $columns = array(

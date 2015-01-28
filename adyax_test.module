@@ -4,6 +4,7 @@
  * Main module file.
  */
 
+include_once 'adyax_test.features.inc';
 
 /**
  * Implements hook_field_info().
@@ -114,8 +115,73 @@ function adyax_test_field_formatter_info() {
  * Implements hook_init.
  */
 function adyax_test_init() {
+  _adyax_test_dummy_content();
 }
 
+/**
+ * Implements hook_test_post_features_enable_feature.
+ */
+function adyax_test_post_features_enable_feature($component) {
+}
+
+/**
+ * Implemets hook_enable.
+ */
+function adyax_test_modules_enabled($modules) {
+}
+
+/**
+ * Dummy content.
+ */
+function _adyax_test_dummy_content() {
+  $first_run = variable_get('adyax_test_first_run', TRUE);
+  if ($first_run) {
+    $ids = array (15298502, 1936885, 2005166, 1772443, 1634645);
+    foreach ($ids as $id) {
+      try {
+        _adyax_test_create_vimeo_entity($id);
+      }
+      catch (Exception $e) {
+        drupal_set_message(t('Vimeo video - @id has not been processed', array ('@id' => $id)), 'error');
+      }
+    }
+    variable_set('adyax_test_first_run', FALSE);
+  }
+}
+
+/**
+ * It creates a vimeo content by Vimeo id.
+ */
+function _adyax_test_create_vimeo_entity($id) {
+  global $user;
+
+  $result = drupal_http_request('http://vimeo.com/api/v2/video/' . $id . '.json');
+  if ($result->code != 200) {
+    return FALSE;
+  }
+  $data = json_decode($result->data);
+  $data = reset($data);
+  $node = new stdClass();
+  $node->type = 'vimeo';
+  node_object_prepare($node);
+  $node->language = LANGUAGE_NONE;
+  $node->uid = $user->uid;
+  $field_name = 'field_vimeo';
+  $langcode = field_language('node', $node, 'field_vimeo', NULL);
+  $node->field_vimeo[$langcode][] = array (
+    'vimeo_code' => $id,
+  );
+  $langcode = field_language('node', $node, 'body', NULL);
+  $node->body[$langcode][] = array (
+    'value' => $data->description,
+  );
+  $node->title = $data->title;
+  node_save ($node);
+}
+
+/**
+ * It loads a vimeo thumbnail.
+ */
 function _adyax_test_load_thumnail($id) {
   $result = drupal_http_request('http://vimeo.com/api/v2/video/' . $id . '.json');
   if ($result->code != 200) {
