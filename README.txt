@@ -22,4 +22,4 @@ on Vimeo site. You must use widgets and formatters to interact with user and
 present results.
 
 Organize your code as module named ‘adyax_test’.
-You should write your code respecting drupal standards and approaches.
+You should write your code respecting drupal standards and approaches.edited
